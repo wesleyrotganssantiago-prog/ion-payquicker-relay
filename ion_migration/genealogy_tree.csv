@@ -1,0 +1,39 @@
+position,full_name,member_type,is_grandfathered,is_ghost,sponsor_name,rank,notes
+1,INFINITY ONE NETWORK LLC,corporate,false,false,,Infinity,Top company position
+2,VIPER MARKETING,corporate,false,true,INFINITY ONE NETWORK LLC,Infinity,Infinity within Infinity One Network Infinity Code
+3,ERIC CAPRARESE,founding,false,false,VIPER MARKETING,Infinity,Infinity within Viper Infinity Code
+4,NATHANIEL CALIMA,founding,false,false,ERIC CAPRARESE,Pinnacle,Pinnacle within Eric Caprarese Infinity Code
+5,CORPORATE 1,corporate,false,true,NATHANIEL CALIMA,,Ghost position - reserved for big leader
+6,CORPORATE 2,corporate,false,true,CORPORATE 1,,Ghost position - reserved for big leader
+7,CORPORATE 3,corporate,false,true,CORPORATE 2,,Ghost position - reserved for big leader
+8,CORPORATE 4,corporate,false,true,CORPORATE 3,,Ghost position - reserved for big leader
+9,CORPORATE 5,corporate,false,true,CORPORATE 4,,Ghost position - reserved for big leader
+10,CORPORATE 6,corporate,false,true,CORPORATE 5,,Ghost position - reserved for big leader
+11,CORPORATE 7,corporate,false,true,CORPORATE 6,,Ghost position - reserved for big leader
+12,CORPORATE 8,corporate,false,true,CORPORATE 7,,Ghost position - reserved for big leader
+13,CORPORATE 9,corporate,false,true,CORPORATE 8,,Ghost position - reserved for big leader
+14,CORPORATE 10,corporate,false,true,CORPORATE 9,,Ghost position - reserved for big leader
+15,MATTHEW CALIMA,member,true,false,CORPORATE 10,,To be upcoded
+16,CORPORATE 11,corporate,false,true,MATTHEW CALIMA,,Ghost position
+17,CORPORATE 12,corporate,false,true,CORPORATE 11,,Ghost position
+18,CORPORATE 13,corporate,false,true,CORPORATE 12,,Ghost position
+19,CORPORATE 14,corporate,false,true,CORPORATE 13,,Ghost position
+20,CORPORATE 15,corporate,false,true,CORPORATE 14,,Ghost position
+21,ALVIN LOR,member,true,false,CORPORATE 15,,To be upcoded
+22,HAROLD JUTAJERO,member,true,false,ALVIN LOR,,To be upcoded
+23,MICAH SASPA,member,true,false,HAROLD JUTAJERO,,To be upcoded
+24,CORPORATE 16,corporate,false,true,MICAH SASPA,,Ghost position
+25,RICHARD EVANSON,member,true,false,CORPORATE 16,,To be upcoded
+26,LISA FIELDS,member,true,false,RICHARD EVANSON,,Bucket member - placed after Richard
+27,DAVE BYERS,member,true,false,LISA FIELDS,,Bucket member
+28,IVAN NUNEZ,member,true,false,DAVE BYERS,,To be upcoded
+29,DELFINO BALDERRAMA,member,true,false,IVAN NUNEZ,,To be upcoded
+30,GUILLERMINA ARREDONDO,member,true,false,DELFINO BALDERRAMA,,To be upcoded
+31,CORPORATE 17,corporate,false,true,GUILLERMINA ARREDONDO,,Ghost position
+32,JEAN MARC KAHE,member,true,false,CORPORATE 17,,To be upcoded
+33,GABE QUIRINO,member,true,false,JEAN MARC KAHE,,To be upcoded
+34,GREG GALLEY,member,true,false,GABE QUIRINO,,Bucket member - placed here
+35,MARK SAMSON,member,true,false,GREG GALLEY,,To be upcoded
+36,CORPORATE 18,corporate,false,true,MARK SAMSON,,Ghost position
+37,DANIELLE NONOG,member,true,false,CORPORATE 18,,To be upcoded
+38,KYLE GARRETT,member,true,false,DANIELLE NONOG,,To be upcoded
