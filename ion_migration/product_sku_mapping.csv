@@ -1,0 +1,21 @@
+official_name,official_sku,shiphero_name,shiphero_sku,on_hand,available,category,status,notes
+TOTAL 5X SYSTEM,5x,ION 5X Total Life System,5x,60,60,Nutrition,MATCH,SKU matches
+CORE 4,corefour,Daily Core4 Stack,corefour,60,60,Nutrition,MATCH,SKU matches
+MIAMI 24 HOUR DIET,15-day-cleanse,Miami 24 Hour Diet™ ($14.95 Member Price),15-day-cleanse,119,119,Nutrition,MATCH,SKU matches
+MIAMI 24 HOUR DIET X6,m24x6,Miami 24 Hour Diet™ x6 Pack (Member Price),m24x6,19,19,Nutrition,MATCH,SKU matches
+COMPLETE VITALITY ELITE,vitalityelite,Complete Vitality Elite (Members Price $14.95),vitalityelite,62,61,Nutrition,MATCH - CHECK STOCK,On Hand 62 vs Available 61
+COMPLETE VITALITY ELITE X6,vitality6x,Complete Vitality Elite x6 Pack (Members Price $89.70),vitaltyela,10,10,Nutrition,SKU MISMATCH,Official: vitality6x / ShipHero: vitaltyela — UPDATE SHIPHERO
+ULTIMATE GUT HEALTH,ultimate-gut-health,Ultimate Gut Health,GUT-HEALTH,70,70,Nutrition,SKU MISMATCH,Official: ultimate-gut-health / ShipHero: GUT-HEALTH — UPDATE SHIPHERO
+ULTIMATE GUT HEALTH X6,ultimateguthealthx6,Ultimate Gut Health x8 Pack (Members Price $107.70),ultimateguthealthx6,11,11,Nutrition,MATCH,SKU matches (listed as x8 in ShipHero — verify)
+POWER UP PLUS,powerupplus,Power UP PLUS (Members Price $14.95),powerupplus,81,80,Nutrition,MATCH - CHECK STOCK,On Hand 81 vs Available 80
+POWER UP PLUS X6,powerupplus6x,Power Up Plus x6 (Members Price $85.70),powerupplus6a,10,10,Nutrition,SKU MISMATCH,Official: powerupplus6x / ShipHero: powerupplus6a — UPDATE SHIPHERO
+SLEEP,sleep,Sleep ($17.95 Member Price),sleep,125,124,Nutrition,MATCH - CHECK STOCK,On Hand 125 vs Available 124
+SLEEP X6,sleep6x,Sleep x6 (Members Price $107.70),sleepx6s,20,20,Nutrition,SKU MISMATCH,Official: sleep6x / ShipHero: sleepx6s — UPDATE SHIPHERO
+#1 EYE AND LIP WRINKLE SMOOTHER,ELWS-15G,iO SKIN™ NO1 Eye and Lip Wrinkle Smoother ($21.95 Member Price),ELWS-15G,24,24,Skin,MATCH,SKU matches
+#2 HYDRATING SERUM,HS-28G,iO SKIN™ NO2 Hydrating Serum ($24.95 Member Price),HS-28G,21,21,Skin,MATCH,SKU matches
+#3 LUXURY FACE CREAM,LFC-28G,iO SKIN™ NO3 Luxury Face Cream ($27.95 Member Price),LFC-28G,22,22,Skin,MATCH,SKU matches
+1-2-3 SYSTEM,IONSC123,iO SKIN™ 1-2-3 System ($69.95 Member Price),IONSC123,21,21,Skin,MATCH,SKU matches
+FRAGRANCE FREE BODY BUTTER,FFBB-170G,iO SKIN™ Fragrance Free Body Butter ($19.95 Member Price),FFBB-170G,15,15,Skin,MATCH,SKU matches
+POMEGRANATE GREEN TEA ROSEWATER HYDRATING MIST+,HMWC-5OZ-1,iO SKIN™ Pomegranate Green Tea Rosewater Hydrating Mist+ ($19.95 Member Price),HMWC-5OZ-1,23,23,Skin,MATCH,SKU matches
+HYDRATING MIST WITH VITAMIN C+,HMWC-5OZ,iO SKIN™ Hydrating Mist with Vitamin C+ ($17.95 Member Price),HMWC-5OZ,19,19,Skin,MATCH,SKU matches
+ORGANIC FRUIT & VEGGIE,organic-fruit-and-veggie-complex,INFINITY ONE NETWORK | Organic Fruit & Veggie Complex | 120 Tablets,FRUIT-VEGGIE,48,48,Seasonal,SKU MISMATCH,Official: organic-fruit-and-veggie-complex / ShipHero: FRUIT-VEGGIE — UPDATE SHIPHERO
