@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ION Genealogy Tree</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #1a1a2e; }
+  
+  .header { 
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    padding: 20px 40px; display: flex; align-items: center; gap: 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+  .header img { height: 50px; }
+  .header h1 { color: white; font-size: 24px; font-weight: 700; }
+  .header span { color: #e94560; font-size: 14px; margin-left: auto; }
+
+  .legend {
+    display: flex; gap: 15px; padding: 15px 40px; background: white;
+    border-bottom: 1px solid #e0e0e0; flex-wrap: wrap; align-items: center;
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .legend-dot { width: 20px; height: 20px; border-radius: 50%; border: 3px solid; }
+
+  .stats-bar {
+    display: flex; gap: 20px; padding: 15px 40px; background: #1a1a2e;
+    flex-wrap: wrap;
+  }
+  .stat { text-align: center; }
+  .stat-num { font-size: 22px; font-weight: 700; color: #e94560; }
+  .stat-label { font-size: 11px; color: #aaa; text-transform: uppercase; }
+
+  .compensation {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px; padding: 20px 40px;
+  }
+  .comp-card {
+    background: white; border-radius: 12px; padding: 15px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08); border-top: 4px solid;
+  }
+  .comp-card h3 { font-size: 13px; color: #666; margin-bottom: 5px; }
+  .comp-card .amount { font-size: 28px; font-weight: 800; }
+  .comp-card .desc { font-size: 12px; color: #999; margin-top: 5px; }
+
+  .tree-container {
+    padding: 20px 40px; overflow-x: auto;
+  }
+  .tree-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; color: #1a1a2e; }
+
+  .tree {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 0; min-width: 300px;
+  }
+
+  .node-wrapper { display: flex; flex-direction: column; align-items: center; }
+  
+  .connector {
+    width: 3px; height: 30px;
+    background: linear-gradient(to bottom, #ccc, #aaa);
+  }
+  .connector.ghost { background: linear-gradient(to bottom, #ddd, #ccc); border-left: 3px dashed #ccc; width: 0; }
+
+  .node {
+    border-radius: 16px; padding: 12px 20px; min-width: 220px;
+    display: flex; align-items: center; gap: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    cursor: pointer; transition: all 0.2s; position: relative;
+  }
+  .node:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.15); }
+
+  .node.corporate {
+    background: #f8f9fa; border: 2px dashed #ccc; color: #999;
+  }
+  .node.founding {
+    background: linear-gradient(135deg, #fff8e1, #fff3cd);
+    border: 3px solid #f59e0b; color: #92400e;
+  }
+  .node.member {
+    background: white; border: 2px solid #6366f1; color: #1a1a2e;
+  }
+  .node.bucket {
+    background: linear-gradient(135deg, #f3e8ff, #ede9fe);
+    border: 2px solid #8b5cf6; color: #5b21b6;
+  }
+
+  .node-icon { font-size: 22px; }
+  .node-info { flex: 1; }
+  .node-name { font-weight: 700; font-size: 14px; }
+  .node-sub { font-size: 11px; opacity: 0.7; margin-top: 2px; }
+  .node-pos { 
+    position: absolute; right: -10px; top: -10px;
+    background: #1a1a2e; color: white; border-radius: 50%;
+    width: 22px; height: 22px; font-size: 10px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .rank-badge {
+    font-size: 10px; font-weight: 700; padding: 2px 8px;
+    border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .rank-infinity { background: #e94560; color: white; }
+  .rank-pinnacle { background: #f59e0b; color: white; }
+  .rank-legend { background: #10b981; color: white; }
+  .rank-icon { background: #6366f1; color: white; }
+  .rank-master { background: #3b82f6; color: white; }
+  .rank-gf { background: #9ca3af; color: white; }
+
+  .ghost-chain {
+    background: #f8f9fa; border: 2px dashed #ddd;
+    border-radius: 12px; padding: 8px 20px;
+    color: #bbb; font-size: 12px; display: flex; align-items: center; gap: 8px;
+    min-width: 220px; justify-content: center;
+  }
+
+  .ranks-section {
+    padding: 20px 40px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+  }
+  .rank-card {
+    background: white; border-radius: 12px; padding: 15px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+  }
+  .rank-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .rank-card-header h3 { font-size: 16px; font-weight: 700; }
+  .rank-req { font-size: 12px; color: #666; line-height: 1.6; }
+  .rank-req span { font-weight: 700; color: #1a1a2e; }
+
+  .section-title {
+    font-size: 18px; font-weight: 700; padding: 20px 40px 0;
+    color: #1a1a2e; border-top: 2px solid #e0e0e0; margin-top: 10px;
+  }
+
+  .coded-royalty {
+    display: flex; gap: 10px; padding: 15px 40px; flex-wrap: wrap;
+  }
+  .cr-card {
+    flex: 1; min-width: 120px; border-radius: 12px; padding: 15px;
+    text-align: center; color: white;
+  }
+  .cr-card .cr-rank { font-size: 13px; font-weight: 600; opacity: 0.9; }
+  .cr-card .cr-amount { font-size: 32px; font-weight: 900; margin: 5px 0; }
+  .cr-card .cr-label { font-size: 11px; opacity: 0.8; }
+
+  footer { padding: 20px 40px; text-align: center; color: #999; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div style="font-size:32px">🌿</div>
+  <div>
+    <h1>INFINITY ONE NETWORK</h1>
+    <div style="color:#aaa;font-size:13px">ION Genealogy Tree & Compensation Overview</div>
+  </div>
+  <span>Generated May 11, 2026</span>
+</div>
+
+<!-- STATS BAR -->
+<div class="stats-bar">
+  <div class="stat"><div class="stat-num">38</div><div class="stat-label">Total Positions</div></div>
+  <div class="stat"><div class="stat-num">18</div><div class="stat-label">Ghost Positions</div></div>
+  <div class="stat"><div class="stat-num">18</div><div class="stat-label">Real Members</div></div>
+  <div class="stat"><div class="stat-num">2</div><div class="stat-label">Founding Members</div></div>
+  <div class="stat"><div class="stat-num">$40</div><div class="stat-label">Per Product</div></div>
+  <div class="stat"><div class="stat-num">6</div><div class="stat-label">Unilevel Levels</div></div>
+  <div class="stat"><div class="stat-num">Every Friday</div><div class="stat-label">Payout Day</div></div>
+  <div class="stat"><div class="stat-num">2 Weeks</div><div class="stat-label">Arrears</div></div>
+</div>
+
+<!-- COMPENSATION SPLIT -->
+<div class="section-title">💰 Product Compensation Split ($40 total)</div>
+<div class="compensation">
+  <div class="comp-card" style="border-color:#e94560">
+    <h3>Coded Royalty</h3>
+    <div class="amount" style="color:#e94560">$20</div>
+    <div class="desc">Paid into sponsor's active code — unlimited depth</div>
+  </div>
+  <div class="comp-card" style="border-color:#6366f1">
+    <h3>Unilevel</h3>
+    <div class="amount" style="color:#6366f1">$12</div>
+    <div class="desc">$2/level × 6 compressed levels in downline</div>
+  </div>
+  <div class="comp-card" style="border-color:#10b981">
+    <h3>Company</h3>
+    <div class="amount" style="color:#10b981">$8</div>
+    <div class="desc">Retained by Infinity One Network LLC</div>
+  </div>
+  <div class="comp-card" style="border-color:#f59e0b">
+    <h3>Retail Bonus</h3>
+    <div class="amount" style="color:#f59e0b">$1</div>
+    <div class="desc">Per product sale per level × 6 levels</div>
+  </div>
+</div>
+
+<!-- CODED ROYALTY RATES -->
+<div class="section-title">👑 Coded Royalty Rates by Rank</div>
+<div class="coded-royalty">
+  <div class="cr-card" style="background:linear-gradient(135deg,#3b82f6,#2563eb)">
+    <div class="cr-rank">MASTER</div>
+    <div class="cr-amount">$4</div>
+    <div class="cr-label">per sub/mo</div>
+  </div>
+  <div class="cr-card" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">
+    <div class="cr-rank">ICON</div>
+    <div class="cr-amount">$8</div>
+    <div class="cr-label">per sub/mo</div>
+  </div>
+  <div class="cr-card" style="background:linear-gradient(135deg,#10b981,#059669)">
+    <div class="cr-rank">LEGEND</div>
+    <div class="cr-amount">$12</div>
+    <div class="cr-label">per sub/mo</div>
+  </div>
+  <div class="cr-card" style="background:linear-gradient(135deg,#f59e0b,#d97706)">
+    <div class="cr-rank">PINNACLE</div>
+    <div class="cr-amount">$16</div>
+    <div class="cr-label">per sub/mo</div>
+  </div>
+  <div class="cr-card" style="background:linear-gradient(135deg,#e94560,#c0392b)">
+    <div class="cr-rank">INFINITY</div>
+    <div class="cr-amount">$20</div>
+    <div class="cr-label">per sub/mo</div>
+  </div>
+</div>
+
+<!-- RANK REQUIREMENTS -->
+<div class="section-title">🏆 Rank Qualification Requirements</div>
+<div class="ranks-section">
+  <div class="rank-card">
+    <div class="rank-card-header">
+      <span class="rank-badge rank-master">Master</span>
+    </div>
+    <div class="rank-req">
+      • <span>3</span> direct sponsored members with active subs<br>
+      • <span>1</span> retail customer<br>
+      • Status: <span>Permanent once achieved</span>
+    </div>
+  </div>
+  <div class="rank-card">
+    <div class="rank-card-header">
+      <span class="rank-badge rank-icon">Icon</span>
+    </div>
+    <div class="rank-req">
+      • <span>25</span> total active subs in code<br>
+      • <span>6</span> Masters in Icon code<br>
+      • Masters must join AFTER you reach Icon<br>
+      • Status: <span>Permanent once achieved</span>
+    </div>
+  </div>
+  <div class="rank-card">
+    <div class="rank-card-header">
+      <span class="rank-badge rank-legend">Legend</span>
+    </div>
+    <div class="rank-req">
+      • <span>100</span> total active subs in code<br>
+      • <span>4</span> Icons in Legend code<br>
+      • Icons must join AFTER you reach Legend<br>
+      • Status: <span>Permanent once achieved</span>
+    </div>
+  </div>
+  <div class="rank-card">
+    <div class="rank-card-header">
+      <span class="rank-badge rank-pinnacle">Pinnacle</span>
+    </div>
+    <div class="rank-req">
+      • <span>250</span> total active subs in code<br>
+      • <span>2</span> Legends in Pinnacle code<br>
+      • Legends must join AFTER you reach Pinnacle<br>
+      • Status: <span>Permanent once achieved</span>
+    </div>
+  </div>
+  <div class="rank-card">
+    <div class="rank-card-header">
+      <span class="rank-badge rank-infinity">Infinity</span>
+    </div>
+    <div class="rank-req">
+      • <span>1,000</span> total active subs in code<br>
+      • <span>1</span> Pinnacle in Infinity code<br>
+      • Pinnacle must join AFTER you reach Infinity<br>
+      • Status: <span>Permanent once achieved</span>
+    </div>
+  </div>
+</div>
+
+<!-- LEGEND -->
+<div class="section-title">🌳 Genealogy Tree — Straight Line Structure</div>
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="border-color:#f59e0b;background:#fff8e1"></div> Founding Member</div>
+  <div class="legend-item"><div class="legend-dot" style="border-color:#6366f1;background:white"></div> Grandfathered Member</div>
+  <div class="legend-item"><div class="legend-dot" style="border-color:#8b5cf6;background:#f3e8ff"></div> Bucket Member</div>
+  <div class="legend-item"><div class="legend-dot" style="border-color:#ccc;background:#f8f9fa;border-style:dashed"></div> Corporate Ghost Position</div>
+  <div style="margin-left:auto;font-size:12px;color:#999">All members grandfathered — no coded royalty until upcoded</div>
+</div>
+
+<!-- TREE -->
+<div class="tree-container">
+<div class="tree">
+
+  <!-- 1: ION LLC -->
+  <div class="node-wrapper">
+    <div class="node corporate">
+      <div class="node-pos">1</div>
+      <div class="node-icon">🏢</div>
+      <div class="node-info">
+        <div class="node-name">INFINITY ONE NETWORK LLC</div>
+        <div class="node-sub">Corporate Top Position</div>
+      </div>
+      <span class="rank-badge rank-infinity">Infinity</span>
+    </div>
+    <div class="connector"></div>
+  </div>
+
+  <!-- 2: VIPER MARKETING -->
+  <div class="node-wrapper">
+    <div class="node corporate">
+      <div class="node-pos">2</div>
+      <div class="node-icon">🏢</div>
+      <div class="node-info">
+        <div class="node-name">VIPER MARKETING</div>
+        <div class="node-sub">Corporate Ghost — Infinity Code</div>
+      </div>
+      <span class="rank-badge rank-infinity">Infinity</span>
+    </div>
+    <div class="connector"></div>
+  </div>
+
+  <!-- 3: ERIC -->
+  <div class="node-wrapper">
+    <div class="node founding">
+      <div class="node-pos">3</div>
+      <div class="node-icon">⭐</div>
+      <div class="node-info">
+        <div class="node-name">ERIC CAPRARESE</div>
+        <div class="node-sub">Co-Founder — Founding Member</div>
+      </div>
+      <span class="rank-badge rank-infinity">Infinity</span>
+    </div>
+    <div class="connector"></div>
+  </div>
+
+  <!-- 4: NATE -->
+  <div class="node-wrapper">
+    <div class="node founding">
+      <div class="node-pos">4</div>
+      <div class="node-icon">⭐</div>
+      <div class="node-info">
+        <div class="node-name">NATHANIEL CALIMA</div>
+        <div class="node-sub">Co-Founder / EVP — Founding Member</div>
+      </div>
+      <span class="rank-badge rank-pinnacle">Pinnacle</span>
+    </div>
+    <div class="connector"></div>
+  </div>
+
+  <!-- Ghost chain 5-14 -->
+  <div class="node-wrapper">
+    <div class="ghost-chain">
+      🏢 CORPORATE 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10
+      <span style="background:#eee;padding:2px 8px;border-radius:10px;font-size:11px">10 ghost positions</span>
+    </div>
+    <div class="connector"></div>
+  </div>
+
+  <!-- 15: MATTHEW CALIMA -->
+  <div class="node-wrapper">
+    <div class="node member">
+      <div class="node-pos">15</div>
+      <div class="node-icon">👤</div>
+      <div class="node-info">
+        <div class="node-name">MATTHEW CALIMA</div>
+        <div class="node-sub">Grandfathered — pending upcode</div>
+      </div>
+      <span class="rank-badge rank-gf">GF</span>
+    </div>
+    <div class="connector"></div>
+  </div>
+
+  <!-- Ghost chain 16-20 -->
+  <div class="node-wrapper">
+    <div class="ghost-chain">
+      🏢 CORPORATE 11 → 12 → 13 → 14 → 15
+      <span style="background:#eee;padding:2px 8px;border-radius:10px;font-size:11px">5 ghost positions</span>
+    </div>
+    <div class="connector"></div>
+  </div>
+
+  <!-- 21: ALVIN LOR -->
+  <div class="node-wrapper">
+    <div class="node member">
+      <div class="node-pos">21</div>
+      <div class="node-icon">👤</div>
+      <div class="node-info">
+        <div class="node-name">ALVIN LOR</div>
+        <div class="node-sub">Grandfathered — pending upcode</div>
+      </div>
+      <span class="rank-badge rank-gf">GF</span>
+    </div>
+    <div class="connector"></div>
+  </div>
+
+  <!-- 22: HAROLD JUTAJERO -->
+  <div class="node-wrapper">
+    <div class="node member">
+      <div class="node-pos">22</div>
+      <div class="node-icon">👤</div>
+      <div class="node-info">
+        <div class="node-name">HAROLD JUTAJERO</div>
+        <div class="node-sub">Grandfathered — pending upcode</div>
+      </div>
+      <span class="rank-badge rank-gf">GF</span>
+    </div>
+    <div class="connector"></div>
+  </div>
+
+  <!-- 23: MICAH SASPA -->
+  <div class="node-wrapper">
+    <div class="node member">
+      <div class="node-pos">23</div>
+      <div class="node-icon">👤</div>
+      <div class="node-info">
+        <div class="node-name">MICAH SASPA</div>
+        <div class="node-sub">Grandfathered — pending upcode</div>
+      </div>
+      <span class="rank-badge rank-gf">GF</span>
+    </div>
+    <div class="connector"></div>
+  </div>
+
+  <!-- Ghost 24 -->
+  <div class="node-wrapper">
+    <div class="ghost-chain">
+      🏢 CORPORATE 16
+      <span style="background:#eee;padding:2px 8px;border-radius:10px;font-size:11px">1 ghost position</span>
+    </div>
+    <div class="connector"></div>
+  </div>
+
+  <!-- 25: RICHARD EVANSON -->
+  <div class="node-wrapper">
+    <div class="node member">
+      <div class="node-pos">25</div>
+      <div class="node-icon">👤</div>
+      <div class="node-info">
+        <div class="node-name">RICHARD EVANSON</div>
+        <div class="node-sub">Grandfathered — pending upcode</div>
+      </div>
+      <span class="rank-badge rank-gf">GF</span>
+    </div>
+    <div class="connector"></div>
+  </div>
+
+  <!-- 26: LISA FIELDS (bucket) -->
+  <div class="node-wrapper">
+    <div class="node bucket">
+      <div class="node-pos">26</div>
+      <div class="node-icon">🪣</div>
+      <div class="node-info">
+        <div class="node-name">LISA FIELDS</div>
+        <div class="node-sub">Bucket Member — Grandfathered</div>
+      </div>
+      <span class="rank-badge rank-gf">BUCKET</span>
+    </div>
+    <div class="connector"></div>
+  </div>
+
+  <!-- 27: DAVE BYERS (bucket) -->
+  <div class="node-wrapper">
+    <div class="node bucket">
+      <div class="node-pos">27</div>
+      <div class="node-icon">🪣</div>
+      <div class="node-info">
+        <div class="node-name">DAVE BYERS</div>
+        <div class="node-sub">Bucket Member — Grandfathered</div>
+      </div>
+      <span class="rank-badge rank-gf">BUCKET</span>
+    </div>
+    <div class="connector"></div>
+  </div>
+
+  <!-- 28: IVAN NUNEZ -->
+  <div class="node-wrapper">
+    <div class="node member">
+      <div class="node-pos">28</div>
+      <div class="node-icon">👤</div>
+      <div class="node-info">
+        <div class="node-name">IVAN NUNEZ</div>
+        <div class="node-sub">Grandfathered — pending upcode</div>
+      </div>
+      <span class="rank-badge rank-gf">GF</span>
+    </div>
+    <div class="connector"></div>
+  </div>
+
+  <!-- 29: DELFINO -->
+  <div class="node-wrapper">
+    <div class="node member">
+      <div class="node-pos">29</div>
+      <div class="node-icon">👤</div>
+      <div class="node-info">
+        <div class="node-name">DELFINO BALDERRAMA</div>
+        <div class="node-sub">Grandfathered — pending upcode</div>
+      </div>
+      <span class="rank-badge rank-gf">GF</span>
+    </div>
+    <div class="connector"></div>
+  </div>
+
+  <!-- 30: GUILLERMINA -->
+  <div class="node-wrapper">
+    <div class="node member">
+      <div class="node-pos">30</div>
+      <div class="node-icon">👤</div>
+      <div class="node-info">
+        <div class="node-name">GUILLERMINA ARREDONDO</div>
+        <div class="node-sub">Grandfathered — pending upcode</div>
+      </div>
+      <span class="rank-badge rank-gf">GF</span>
+    </div>
+    <div class="connector"></div>
+  </div>
+
+  <!-- Ghost 31 -->
+  <div class="node-wrapper">
+    <div class="ghost-chain">
+      🏢 CORPORATE 17
+      <span style="background:#eee;padding:2px 8px;border-radius:10px;font-size:11px">1 ghost position</span>
+    </div>
+    <div class="connector"></div>
+  </div>
+
+  <!-- 32: JEAN MARC KAHE -->
+  <div class="node-wrapper">
+    <div class="node member">
+      <div class="node-pos">32</div>
+      <div class="node-icon">👤</div>
+      <div class="node-info">
+        <div class="node-name">JEAN MARC KAHE</div>
+        <div class="node-sub">Grandfathered — pending upcode</div>
+      </div>
+      <span class="rank-badge rank-gf">GF</span>
+    </div>
+    <div class="connector"></div>
+  </div>
+
+  <!-- 33: GABE QUIRINO -->
+  <div class="node-wrapper">
+    <div class="node member">
+      <div class="node-pos">33</div>
+      <div class="node-icon">👤</div>
+      <div class="node-info">
+        <div class="node-name">GABE QUIRINO</div>
+        <div class="node-sub">Grandfathered — pending upcode</div>
+      </div>
+      <span class="rank-badge rank-gf">GF</span>
+    </div>
+    <div class="connector"></div>
+  </div>
+
+  <!-- 34: GREG GALLEY (bucket) -->
+  <div class="node-wrapper">
+    <div class="node bucket">
+      <div class="node-pos">34</div>
+      <div class="node-icon">🪣</div>
+      <div class="node-info">
+        <div class="node-name">GREG GALLEY</div>
+        <div class="node-sub">Bucket Member — Grandfathered</div>
+      </div>
+      <span class="rank-badge rank-gf">BUCKET</span>
+    </div>
+    <div class="connector"></div>
+  </div>
+
+  <!-- 35: MARK SAMSON -->
+  <div class="node-wrapper">
+    <div class="node member">
+      <div class="node-pos">35</div>
+      <div class="node-icon">👤</div>
+      <div class="node-info">
+        <div class="node-name">MARK SAMSON</div>
+        <div class="node-sub">Grandfathered — pending upcode</div>
+      </div>
+      <span class="rank-badge rank-gf">GF</span>
+    </div>
+    <div class="connector"></div>
+  </div>
+
+  <!-- Ghost 36 -->
+  <div class="node-wrapper">
+    <div class="ghost-chain">
+      🏢 CORPORATE 18
+      <span style="background:#eee;padding:2px 8px;border-radius:10px;font-size:11px">1 ghost position</span>
+    </div>
+    <div class="connector"></div>
+  </div>
+
+  <!-- 37: DANIELLE NONOG -->
+  <div class="node-wrapper">
+    <div class="node member">
+      <div class="node-pos">37</div>
+      <div class="node-icon">👤</div>
+      <div class="node-info">
+        <div class="node-name">DANIELLE NONOG</div>
+        <div class="node-sub">Grandfathered — pending upcode</div>
+      </div>
+      <span class="rank-badge rank-gf">GF</span>
+    </div>
+    <div class="connector"></div>
+  </div>
+
+  <!-- 38: KYLE GARRETT -->
+  <div class="node-wrapper">
+    <div class="node member" style="border-color:#10b981;border-width:3px">
+      <div class="node-pos">38</div>
+      <div class="node-icon">👤</div>
+      <div class="node-info">
+        <div class="node-name">KYLE GARRETT</div>
+        <div class="node-sub">Last position — bottom of straight line</div>
+      </div>
+      <span class="rank-badge rank-gf">GF</span>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<footer>
+  ION Genealogy Tree — Confidential — Generated May 11, 2026 — 38 positions total (18 real members + 18 corporate ghost positions + 2 founding)
+</footer>
+
+</body>
+</html>
