@@ -1,0 +1,47 @@
+{
+  "type": "object",
+  "properties": {
+    "member_id": {
+      "type": "string",
+      "description": "Member who gets the deduction"
+    },
+    "member_name": {
+      "type": "string"
+    },
+    "amount": {
+      "type": "number",
+      "description": "Amount to deduct (positive number)"
+    },
+    "reason": {
+      "type": "string",
+      "enum": [
+        "refund",
+        "chargeback",
+        "commission_correction",
+        "other"
+      ]
+    },
+    "order_reference": {
+      "type": "string",
+      "description": "Order or transaction ID that caused this deduction"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "applied",
+        "cancelled"
+      ],
+      "default": "pending"
+    },
+    "applied_to_batch": {
+      "type": "string",
+      "description": "Payout batch ID this was deducted from"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [],
+  "name": "PayoutDeduction"
+}
