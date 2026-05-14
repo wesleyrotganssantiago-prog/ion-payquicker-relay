@@ -1,0 +1,39 @@
+{
+  "type": "object",
+  "properties": {
+    "relay_status": {
+      "type": "string",
+      "enum": [
+        "online",
+        "offline"
+      ],
+      "description": "Status of the relay service"
+    },
+    "pq_api_status": {
+      "type": "string",
+      "enum": [
+        "connected",
+        "pending_whitelist",
+        "error"
+      ],
+      "description": "Status of PayQuicker API connection"
+    },
+    "last_checked": {
+      "type": "string",
+      "description": "Last time status was checked"
+    },
+    "relay_ip": {
+      "type": "string",
+      "description": "Outbound IP of the relay"
+    },
+    "last_payout_date": {
+      "type": "string",
+      "description": "Date of last successful payout batch"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [],
+  "name": "PayQuickerStatus"
+}

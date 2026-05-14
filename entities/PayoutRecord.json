@@ -1,0 +1,60 @@
+{
+  "type": "object",
+  "properties": {
+    "member_id": {
+      "type": "string",
+      "description": "Reference to the Member"
+    },
+    "member_name": {
+      "type": "string",
+      "description": "Full name of the member"
+    },
+    "payquicker_user_token": {
+      "type": "string",
+      "description": "PayQuicker user token for this member"
+    },
+    "amount": {
+      "type": "number",
+      "description": "Payout amount in USD"
+    },
+    "currency": {
+      "type": "string",
+      "default": "USD"
+    },
+    "period_start": {
+      "type": "string",
+      "description": "Commission period start date"
+    },
+    "period_end": {
+      "type": "string",
+      "description": "Commission period end date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "processing",
+        "completed",
+        "failed"
+      ],
+      "default": "pending"
+    },
+    "payquicker_transfer_token": {
+      "type": "string",
+      "description": "PayQuicker transfer token after submission"
+    },
+    "error_message": {
+      "type": "string",
+      "description": "Error details if failed"
+    },
+    "payout_batch_id": {
+      "type": "string",
+      "description": "Batch ID for bulk payouts"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [],
+  "name": "PayoutRecord"
+}
