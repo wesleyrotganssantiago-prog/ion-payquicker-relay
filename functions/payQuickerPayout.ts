@@ -1,6 +1,6 @@
 import { createClientFromRequest } from "npm:@base44/sdk";
 
-const RELAY_URL = "https://ion-payquicker-relay-production.up.railway.app";
+const RELAY_URL = "https://ion-payquicker-relay-production-13c8.up.railway.app";
 const RELAY_SECRET = Deno.env.get("RELAY_SECRET") || "";
 const PQ_CLIENT_ID = Deno.env.get("PQ_CLIENT_ID") || "";
 const PQ_CLIENT_SECRET = Deno.env.get("PQ_CLIENT_SECRET") || "";

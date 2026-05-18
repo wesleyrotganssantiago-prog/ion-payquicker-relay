@@ -1,4 +1,4 @@
-const RELAY_URL = "https://ion-payquicker-relay-production.up.railway.app";
+const RELAY_URL = "https://ion-payquicker-relay-production-13c8.up.railway.app";
 const RELAY_SECRET = Deno.env.get("RELAY_SECRET") || "";
 const PQ_CLIENT_ID = Deno.env.get("PQ_CLIENT_ID") || "";
 const PQ_CLIENT_SECRET = Deno.env.get("PQ_CLIENT_SECRET") || "";
@@ -40,17 +40,15 @@ export default async function handler(req: Request): Promise<Response> {
 
       if (tokenRes.ok) {
         pqStatus = "connected";
-      } else if (tokenRes.status === 0 || pqError.includes("timeout") || pqError.includes("Connection")) {
-        pqStatus = "pending_whitelist";
       } else {
-        const err = await tokenRes.json();
+        const err = await tokenRes.json().catch(() => ({}));
         pqError = JSON.stringify(err);
         pqStatus = "error";
       }
     } catch (e) {
       pqError = e.message;
-      pqStatus = e.message.includes("timed out") || e.message.includes("Connection") 
-        ? "pending_whitelist" 
+      pqStatus = e.message.includes("timed out") || e.message.includes("Connection")
+        ? "pending_whitelist"
         : "error";
     }
   }
