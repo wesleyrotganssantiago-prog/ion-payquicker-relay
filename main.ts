@@ -1,12 +1,12 @@
 const PQ_BASE = (Deno.env.get("PAYQUICKER_BASE_URL") || "https://api.payquicker.com").replace(/\/$/, "");
 const RELAY_SECRET = Deno.env.get("RELAY_SECRET") || "";
-
+const PORT = parseInt(Deno.env.get("PORT") || "8080");
 if (!RELAY_SECRET) {
   console.error("FATAL: RELAY_SECRET env var not set.");
   Deno.exit(1);
 }
 
-Deno.serve({ port: 8080 }, async (req) => {
+Deno.serve({ port: PORT }, async (req) => {
   const url = new URL(req.url);
 
   if (url.pathname === "/health") {
