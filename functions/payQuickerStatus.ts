@@ -1,7 +1,14 @@
-const RELAY_URL = "https://ion-payquicker-relay-production-13c8.up.railway.app";
+const RELAY_URL = "https://ion-payquicker-relay.onrender.com";
 const RELAY_SECRET = Deno.env.get("RELAY_SECRET") || "";
 const PQ_CLIENT_ID = Deno.env.get("PQ_CLIENT_ID") || "";
 const PQ_CLIENT_SECRET = Deno.env.get("PQ_CLIENT_SECRET") || "";
+
+// Greg Fruin (PayQuicker) confirmed:
+// - Token URL: https://auth.mypayquicker.com/connect/token
+// - API URL:   https://platform.mypayquicker.com
+// - DataDome does NOT sit in front of the API — only front-end client URLs
+// The relay's PAYQUICKER_BASE_URL must be set to https://platform.mypayquicker.com
+// and token requests must go to https://auth.mypayquicker.com/connect/token
 
 export default async function handler(req: Request): Promise<Response> {
   // 1. Check relay health
@@ -19,12 +26,13 @@ export default async function handler(req: Request): Promise<Response> {
     relayOk = false;
   }
 
-  // 2. Check PayQuicker API
+  // 2. Check PayQuicker API token via relay
+  // Relay must forward /auth-token to https://auth.mypayquicker.com/connect/token
   let pqStatus = "error";
   let pqError = "";
   if (relayOk) {
     try {
-      const tokenRes = await fetch(`${RELAY_URL}/pq/v2/oauth2/token`, {
+      const tokenRes = await fetch(`${RELAY_URL}/pq/connect/token`, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
@@ -41,15 +49,13 @@ export default async function handler(req: Request): Promise<Response> {
       if (tokenRes.ok) {
         pqStatus = "connected";
       } else {
-        const err = await tokenRes.json().catch(() => ({}));
-        pqError = JSON.stringify(err);
+        const errText = await tokenRes.text().catch(() => "");
+        pqError = errText.substring(0, 200);
         pqStatus = "error";
       }
     } catch (e) {
       pqError = e.message;
-      pqStatus = e.message.includes("timed out") || e.message.includes("Connection")
-        ? "pending_whitelist"
-        : "error";
+      pqStatus = "error";
     }
   }
 
@@ -59,5 +65,6 @@ export default async function handler(req: Request): Promise<Response> {
     pq_api_status: pqStatus,
     pq_error: pqError || null,
     last_checked: new Date().toISOString(),
+    note: "Token via auth.mypayquicker.com/connect/token | API via platform.mypayquicker.com",
   });
 }
