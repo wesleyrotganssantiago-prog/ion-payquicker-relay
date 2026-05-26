@@ -1,6 +1,8 @@
-const PQ_BASE = (Deno.env.get("PAYQUICKER_BASE_URL") || "https://api.payquicker.com").replace(/\/$/, "");
+const PQ_BASE = (Deno.env.get("PAYQUICKER_BASE_URL") || "https://platform.mypayquicker.com").replace(/\/$/, "");
+const PQ_AUTH_URL = (Deno.env.get("PQ_AUTH_URL") || "https://auth.mypayquicker.com").replace(/\/$/, "");
 const RELAY_SECRET = Deno.env.get("RELAY_SECRET") || "";
 const PORT = parseInt(Deno.env.get("PORT") || "8080");
+
 if (!RELAY_SECRET) {
   console.error("FATAL: RELAY_SECRET env var not set.");
   Deno.exit(1);
@@ -30,8 +32,12 @@ Deno.serve({ port: PORT }, async (req) => {
     return Response.json({ error: "Not found" }, { status: 404 });
   }
 
-  const targetPath = url.pathname.slice(3);
-  const targetUrl = `${PQ_BASE}${targetPath}${url.search}`;
+  const targetPath = url.pathname.slice(3); // remove /pq prefix
+
+  // Token calls go to auth.mypayquicker.com, everything else to platform.mypayquicker.com
+  const isAuthCall = targetPath === "/connect/token" || targetPath.startsWith("/connect/");
+  const baseUrl = isAuthCall ? PQ_AUTH_URL : PQ_BASE;
+  const targetUrl = `${baseUrl}${targetPath}${url.search}`;
 
   const fwdHeaders = new Headers();
   for (const [k, v] of req.headers.entries()) {
@@ -60,4 +66,6 @@ Deno.serve({ port: PORT }, async (req) => {
   }
 });
 
-console.log("ION→PayQuicker relay listening on :8080");
+console.log(`ION→PayQuicker relay listening on :${PORT}`);
+console.log(`API base: ${PQ_BASE}`);
+console.log(`Auth base: ${PQ_AUTH_URL}`);
