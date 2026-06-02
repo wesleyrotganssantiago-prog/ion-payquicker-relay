@@ -1,0 +1,12 @@
+{
+  "name": "ion-payquicker-relay",
+  "version": "1.0.0",
+  "description": "ION PayQuicker relay with static outbound IP via Fly.io",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
