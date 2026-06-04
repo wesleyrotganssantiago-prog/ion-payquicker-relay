@@ -3,15 +3,8 @@ const RELAY_SECRET = Deno.env.get("RELAY_SECRET") || "";
 const PQ_CLIENT_ID = Deno.env.get("PQ_CLIENT_ID") || "";
 const PQ_CLIENT_SECRET = Deno.env.get("PQ_CLIENT_SECRET") || "";
 
-// Greg Fruin (PayQuicker) confirmed:
-// - Token URL: https://auth.mypayquicker.com/connect/token
-// - API URL:   https://platform.mypayquicker.com
-// - DataDome does NOT sit in front of the API — only front-end client URLs
-// The relay's PAYQUICKER_BASE_URL must be set to https://platform.mypayquicker.com
-// and token requests must go to https://auth.mypayquicker.com/connect/token
-
 export default async function handler(req: Request): Promise<Response> {
-  // 1. Check relay health
+  // 1. Check relay health + outbound IP
   let relayOk = false;
   let relayIp = "";
   try {
@@ -26,13 +19,12 @@ export default async function handler(req: Request): Promise<Response> {
     relayOk = false;
   }
 
-  // 2. Check PayQuicker API token via relay
-  // Relay must forward /auth-token to https://auth.mypayquicker.com/connect/token
+  // 2. Get PayQuicker token via /auth/connect/token → auth.mypayquicker.com via QuotaGuard
   let pqStatus = "error";
   let pqError = "";
   if (relayOk) {
     try {
-      const tokenRes = await fetch(`${RELAY_URL}/pq/connect/token`, {
+      const tokenRes = await fetch(`${RELAY_URL}/auth/connect/token`, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
@@ -65,6 +57,6 @@ export default async function handler(req: Request): Promise<Response> {
     pq_api_status: pqStatus,
     pq_error: pqError || null,
     last_checked: new Date().toISOString(),
-    note: "Token via auth.mypayquicker.com/connect/token | API via platform.mypayquicker.com",
+    note: "Token via /auth/connect/token → auth.mypayquicker.com | API via /pq/ → platform.mypayquicker.com",
   });
 }

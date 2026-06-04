@@ -5,13 +5,11 @@ const RELAY_SECRET = Deno.env.get("RELAY_SECRET") || "";
 const PQ_CLIENT_ID = Deno.env.get("PQ_CLIENT_ID") || "";
 const PQ_CLIENT_SECRET = Deno.env.get("PQ_CLIENT_SECRET") || "";
 
-// Greg Fruin (PayQuicker) confirmed:
-// - Token URL: https://auth.mypayquicker.com/connect/token  → relay path: /pq/connect/token
-// - API URL:   https://platform.mypayquicker.com            → relay path: /pq/...
-// DataDome only protects client-facing URLs, NOT the API endpoints above.
+// Token endpoint: /auth/connect/token → relay routes to auth.mypayquicker.com/connect/token via QuotaGuard
+// API endpoint:   /pq/...             → relay routes to platform.mypayquicker.com/... via QuotaGuard
 
 async function getPQToken(): Promise<string> {
-  const res = await fetch(`${RELAY_URL}/pq/connect/token`, {
+  const res = await fetch(`${RELAY_URL}/auth/connect/token`, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
