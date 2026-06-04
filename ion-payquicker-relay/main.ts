@@ -1,23 +1,36 @@
 const PQ_BASE = (Deno.env.get("PAYQUICKER_BASE_URL") || "https://ionsavings.mypayquicker.com").replace(/\/$/, "");
 const RELAY_SECRET = Deno.env.get("RELAY_SECRET") || "";
 const PORT = parseInt(Deno.env.get("PORT") || "8080");
+const QG_URL = Deno.env.get("QUOTAGUARDSHIELD_URL") || "";
 
 if (!RELAY_SECRET) {
   console.error("FATAL: RELAY_SECRET env var not set.");
   Deno.exit(1);
 }
 
+// Build fetch options — route through QuotaGuard SOCKS5/HTTP proxy if available
+async function proxyFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  if (QG_URL) {
+    // Use Deno's built-in proxy support via client
+    const client = Deno.createHttpClient({ proxy: { url: QG_URL } });
+    return fetch(url, { ...options, client } as any);
+  }
+  return fetch(url, options);
+}
+
 Deno.serve({ port: PORT }, async (req) => {
   const url = new URL(req.url);
 
   if (url.pathname === "/health") {
-    return Response.json({ ok: true, ts: new Date().toISOString() });
+    const proxyActive = !!QG_URL;
+    return Response.json({ ok: true, ts: new Date().toISOString(), proxy: proxyActive });
   }
 
   if (url.pathname === "/whoami") {
     try {
-      const r = await fetch("https://api.ipify.org?format=json");
-      return new Response(await r.text(), { headers: { "content-type": "application/json" } });
+      const r = await proxyFetch("https://api.ipify.org?format=json");
+      const data = await r.json();
+      return Response.json({ ip: data.ip, proxy_active: !!QG_URL });
     } catch (e) {
       return Response.json({ error: e.message }, { status: 500 });
     }
@@ -45,9 +58,9 @@ Deno.serve({ port: PORT }, async (req) => {
 
   const started = Date.now();
   try {
-    const pqRes = await fetch(targetUrl, { method: req.method, headers: fwdHeaders, body });
+    const pqRes = await proxyFetch(targetUrl, { method: req.method, headers: fwdHeaders, body });
     const respBody = await pqRes.arrayBuffer();
-    console.log(JSON.stringify({ method: req.method, path: url.pathname, target: targetUrl, status: pqRes.status, ms: Date.now() - started }));
+    console.log(JSON.stringify({ method: req.method, path: url.pathname, target: targetUrl, status: pqRes.status, ms: Date.now() - started, proxy: !!QG_URL }));
     const outHeaders = new Headers();
     pqRes.headers.forEach((v, k) => {
       if (!["connection", "transfer-encoding", "content-encoding"].includes(k.toLowerCase())) {
@@ -61,4 +74,4 @@ Deno.serve({ port: PORT }, async (req) => {
   }
 });
 
-console.log(`ION→PayQuicker relay listening on port ${PORT}`);
+console.log(`ION→PayQuicker relay listening on port ${PORT} | QuotaGuard: ${QG_URL ? "ACTIVE" : "DISABLED"}`);
