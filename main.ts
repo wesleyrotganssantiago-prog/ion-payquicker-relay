@@ -2,25 +2,41 @@ const PQ_BASE = (Deno.env.get("PAYQUICKER_BASE_URL") || "https://platform.mypayq
 const PQ_AUTH_URL = (Deno.env.get("PQ_AUTH_URL") || "https://auth.mypayquicker.com").replace(/\/$/, "");
 const RELAY_SECRET = Deno.env.get("RELAY_SECRET") || "";
 const PORT = parseInt(Deno.env.get("PORT") || "8080");
+const QG_URL = Deno.env.get("QUOTAGUARDSHIELD_URL") || "";
 
 if (!RELAY_SECRET) {
   console.error("FATAL: RELAY_SECRET env var not set.");
   Deno.exit(1);
 }
 
+if (QG_URL) {
+  console.log("QuotaGuard proxy enabled via HTTPS_PROXY");
+} else {
+  console.warn("WARNING: QUOTAGUARDSHIELD_URL not set — outbound IP will not be static");
+}
+
+// Set proxy env vars so Deno's fetch uses QuotaGuard
+if (QG_URL) {
+  // Deno respects HTTPS_PROXY and HTTP_PROXY environment variables natively
+  Deno.env.set("HTTPS_PROXY", QG_URL);
+  Deno.env.set("HTTP_PROXY", QG_URL);
+}
+
 Deno.serve({ port: PORT }, async (req) => {
   const url = new URL(req.url);
 
   if (url.pathname === "/health") {
-    return Response.json({ ok: true, ts: new Date().toISOString() });
+    return Response.json({ ok: true, ts: new Date().toISOString(), proxy: !!QG_URL });
   }
 
   if (url.pathname === "/whoami") {
     try {
       const r = await fetch("https://api.ipify.org?format=json");
-      return new Response(await r.text(), { headers: { "content-type": "application/json" } });
-    } catch (e) {
-      return Response.json({ error: e.message }, { status: 500 });
+      const data = await r.json();
+      return Response.json({ ...data, proxy_active: !!QG_URL });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return Response.json({ error: msg }, { status: 500 });
     }
   }
 
@@ -32,9 +48,8 @@ Deno.serve({ port: PORT }, async (req) => {
     return Response.json({ error: "Not found" }, { status: 404 });
   }
 
-  const targetPath = url.pathname.slice(3); // remove /pq prefix
+  const targetPath = url.pathname.slice(3);
 
-  // Token calls go to auth.mypayquicker.com, everything else to platform.mypayquicker.com
   const isAuthCall = targetPath === "/connect/token" || targetPath.startsWith("/connect/");
   const baseUrl = isAuthCall ? PQ_AUTH_URL : PQ_BASE;
   const targetUrl = `${baseUrl}${targetPath}${url.search}`;
@@ -60,9 +75,10 @@ Deno.serve({ port: PORT }, async (req) => {
       }
     });
     return new Response(respBody, { status: pqRes.status, headers: outHeaders });
-  } catch (e) {
-    console.error(JSON.stringify({ error: e.message, path: url.pathname, ms: Date.now() - started }));
-    return Response.json({ error: "Relay upstream error", detail: e.message }, { status: 502 });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(JSON.stringify({ error: msg, path: url.pathname, ms: Date.now() - started }));
+    return Response.json({ error: "Relay upstream error", detail: msg }, { status: 502 });
   }
 });
 
