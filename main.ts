@@ -1,4 +1,5 @@
-const PQ_BASE = (Deno.env.get("PAYQUICKER_BASE_URL") || "https://ionsavings.mypayquicker.com").replace(/\/$/, "");
+const PQ_BASE = (Deno.env.get("PAYQUICKER_BASE_URL") || "https://platform.mypayquicker.com").replace(/\/$/, "");
+const PQ_AUTH_BASE = (Deno.env.get("PAYQUICKER_AUTH_URL") || "https://auth.mypayquicker.com").replace(/\/$/, "");
 const RELAY_SECRET = Deno.env.get("RELAY_SECRET") || "";
 const PORT = parseInt(Deno.env.get("PORT") || "8080");
 const QG_URL = Deno.env.get("QUOTAGUARDSHIELD_URL") || "";
@@ -11,7 +12,6 @@ if (!RELAY_SECRET) {
 // Build fetch options — route through QuotaGuard SOCKS5/HTTP proxy if available
 async function proxyFetch(url: string, options: RequestInit = {}): Promise<Response> {
   if (QG_URL) {
-    // Use Deno's built-in proxy support via client
     const client = Deno.createHttpClient({ proxy: { url: QG_URL } });
     return fetch(url, { ...options, client } as any);
   }
@@ -22,8 +22,7 @@ Deno.serve({ port: PORT }, async (req) => {
   const url = new URL(req.url);
 
   if (url.pathname === "/health") {
-    const proxyActive = !!QG_URL;
-    return Response.json({ ok: true, ts: new Date().toISOString(), proxy: proxyActive });
+    return Response.json({ ok: true, ts: new Date().toISOString(), proxy: !!QG_URL });
   }
 
   if (url.pathname === "/whoami") {
@@ -40,12 +39,19 @@ Deno.serve({ port: PORT }, async (req) => {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  if (!url.pathname.startsWith("/pq/")) {
+  // /auth/* routes go to auth.mypayquicker.com
+  // /pq/* routes go to platform.mypayquicker.com
+  let targetUrl: string;
+
+  if (url.pathname.startsWith("/auth/")) {
+    const targetPath = url.pathname.slice(5); // strip /auth
+    targetUrl = `${PQ_AUTH_BASE}${targetPath}${url.search}`;
+  } else if (url.pathname.startsWith("/pq/")) {
+    const targetPath = url.pathname.slice(3); // strip /pq
+    targetUrl = `${PQ_BASE}${targetPath}${url.search}`;
+  } else {
     return Response.json({ error: "Not found" }, { status: 404 });
   }
-
-  const targetPath = url.pathname.slice(3);
-  const targetUrl = `${PQ_BASE}${targetPath}${url.search}`;
 
   const fwdHeaders = new Headers();
   for (const [k, v] of req.headers.entries()) {
@@ -74,4 +80,4 @@ Deno.serve({ port: PORT }, async (req) => {
   }
 });
 
-console.log(`ION→PayQuicker relay listening on port ${PORT} | QuotaGuard: ${QG_URL ? "ACTIVE" : "DISABLED"}`);
+console.log(`ION→PayQuicker relay | port:${PORT} | API:${PQ_BASE} | Auth:${PQ_AUTH_BASE} | QG:${QG_URL ? "ACTIVE" : "DISABLED"}`);
