@@ -1,14 +1,24 @@
 const http = require("http");
 const https = require("https");
+const { ProxyAgent, setGlobalDispatcher, fetch: undiciFetch } = require("undici");
 
 const RELAY_SECRET = process.env.RELAY_SECRET || "";
 const PQ_AUTH_BASE = "https://auth.mypayquicker.com";
 const PQ_API_BASE = "https://platform.mypayquicker.com";
 const PORT = parseInt(process.env.PORT || "8080");
+const QG_URL = process.env.QUOTAGUARDSHIELD_URL;
 
 if (!RELAY_SECRET) {
   console.error("FATAL: RELAY_SECRET env var not set.");
   process.exit(1);
+}
+
+// Route ALL outbound traffic through QuotaGuard if configured
+if (QG_URL) {
+  setGlobalDispatcher(new ProxyAgent(QG_URL));
+  console.log("QuotaGuard proxy enabled");
+} else {
+  console.warn("WARNING: QUOTAGUARDSHIELD_URL not set — outbound IP will not be static");
 }
 
 const server = http.createServer(async (req, res) => {
@@ -17,15 +27,16 @@ const server = http.createServer(async (req, res) => {
   // Health check — no auth needed
   if (url.pathname === "/health") {
     res.writeHead(200, { "Content-Type": "application/json" });
-    return res.end(JSON.stringify({ ok: true, ts: new Date().toISOString() }));
+    return res.end(JSON.stringify({ ok: true, ts: new Date().toISOString(), proxy: !!QG_URL }));
   }
 
-  // IP check — no auth needed
+  // IP check — no auth needed (shows the outbound IP PayQuicker sees)
   if (url.pathname === "/whoami") {
     try {
-      const ip = await fetchJson("https://api.ipify.org?format=json");
+      const r = await undiciFetch("https://api.ipify.org?format=json");
+      const data = await r.json();
       res.writeHead(200, { "Content-Type": "application/json" });
-      return res.end(JSON.stringify(ip));
+      return res.end(JSON.stringify({ ...data, proxy_active: !!QG_URL }));
     } catch (e) {
       res.writeHead(500, { "Content-Type": "application/json" });
       return res.end(JSON.stringify({ error: e.message }));
@@ -62,57 +73,32 @@ const server = http.createServer(async (req, res) => {
     if (["host", "x-relay-secret", "content-length", "connection", "transfer-encoding"].includes(lk)) continue;
     fwdHeaders[k] = v;
   }
-  if (body.length > 0) fwdHeaders["content-length"] = body.length;
 
   const started = Date.now();
   try {
-    const pqRes = await proxyFetch(req.method, targetUrl, fwdHeaders, body);
+    const pqRes = await undiciFetch(targetUrl, {
+      method: req.method,
+      headers: fwdHeaders,
+      body: body.length > 0 ? body : undefined,
+    });
+
+    const respBody = Buffer.from(await pqRes.arrayBuffer());
     console.log(JSON.stringify({ method: req.method, path: url.pathname, target: targetUrl, status: pqRes.status, ms: Date.now() - started }));
-    res.writeHead(pqRes.status, pqRes.headers);
-    res.end(pqRes.body);
+
+    const outHeaders = {};
+    pqRes.headers.forEach((v, k) => {
+      if (!["connection", "transfer-encoding", "content-encoding"].includes(k.toLowerCase())) {
+        outHeaders[k] = v;
+      }
+    });
+
+    res.writeHead(pqRes.status, outHeaders);
+    res.end(respBody);
   } catch (e) {
     console.error(JSON.stringify({ error: e.message, path: url.pathname, ms: Date.now() - started }));
     res.writeHead(502, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Relay upstream error", detail: e.message }));
   }
 });
-
-function proxyFetch(method, targetUrl, headers, body) {
-  return new Promise((resolve, reject) => {
-    const u = new URL(targetUrl);
-    const options = {
-      hostname: u.hostname,
-      path: u.pathname + u.search,
-      method,
-      headers,
-    };
-    const req = https.request(options, (res) => {
-      const chunks = [];
-      res.on("data", (c) => chunks.push(c));
-      res.on("end", () => {
-        const outHeaders = {};
-        for (const [k, v] of Object.entries(res.headers)) {
-          if (!["connection", "transfer-encoding", "content-encoding"].includes(k.toLowerCase())) {
-            outHeaders[k] = v;
-          }
-        }
-        resolve({ status: res.statusCode, headers: outHeaders, body: Buffer.concat(chunks) });
-      });
-    });
-    req.on("error", reject);
-    if (body && body.length > 0) req.write(body);
-    req.end();
-  });
-}
-
-function fetchJson(url) {
-  return new Promise((resolve, reject) => {
-    https.get(url, (res) => {
-      let data = "";
-      res.on("data", (c) => (data += c));
-      res.on("end", () => resolve(JSON.parse(data)));
-    }).on("error", reject);
-  });
-}
 
 server.listen(PORT, () => console.log(`ION→PayQuicker relay on port ${PORT}`));
