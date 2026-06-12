@@ -1,0 +1,2 @@
+FundingAccountPublicId	Amount	RecipientNotificationEmailAddress	RecipientCompanyAssignedUniqueKey
+a0000000000000000000000000000000	0.99	john.q.public@sample.com	EMP001
