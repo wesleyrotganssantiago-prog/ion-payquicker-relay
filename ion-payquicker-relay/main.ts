@@ -1,113 +1,104 @@
-const PQ_BASE = (Deno.env.get("PAYQUICKER_BASE_URL") || "https://platform.mypayquicker.com").replace(/\/$/, "");
-const PQ_AUTH_BASE = (Deno.env.get("PAYQUICKER_AUTH_URL") || "https://auth.mypayquicker.com").replace(/\/$/, "");
-const RELAY_SECRET = Deno.env.get("RELAY_SECRET") || "";
-const PORT = parseInt(Deno.env.get("PORT") || "8080");
-const QG_URL = Deno.env.get("QUOTAGUARDSHIELD_URL") || "";
+// ION → PayQuicker Relay Service
+// Routes requests via this server to give a static outbound IP
+// Auth:  POST /auth/connect/token  → api.sandbox.payquicker.io/api/v2/auth/connect/token
+// API:   /pq/*                     → api.sandbox.payquicker.io/api/v2/*
+
+const PQ_SANDBOX_BASE = (Deno.env.get("PAYQUICKER_BASE_URL") || "https://api.sandbox.payquicker.io/api/v2").replace(/\/$/, "");
+const RELAY_SECRET    = Deno.env.get("RELAY_SECRET") || "";
+const PORT            = parseInt(Deno.env.get("PORT") || "8080");
+const API_VERSION     = "2026.02.01";
 
 if (!RELAY_SECRET) {
   console.error("FATAL: RELAY_SECRET env var not set.");
   Deno.exit(1);
 }
 
-console.log(`ION→PayQuicker relay starting | port:${PORT} | API:${PQ_BASE} | Auth:${PQ_AUTH_BASE} | QG:${QG_URL ? "CONFIGURED" : "DISABLED"}`);
+console.log(`ION→PayQuicker relay starting | port:${PORT} | PQ:${PQ_SANDBOX_BASE}`);
 
-// Build fetch options — route ALL outbound traffic through QuotaGuard static IP
-// Falls back to direct fetch if proxy fails (DNS error etc.)
-async function proxyFetch(url: string, options: RequestInit = {}): Promise<Response> {
-  if (QG_URL) {
-    try {
-      const client = Deno.createHttpClient({ proxy: { url: QG_URL } });
-      const res = await fetch(url, { ...options, client } as any);
-      return res;
-    } catch (proxyErr) {
-      console.warn(`Proxy fetch failed (${proxyErr.message}), falling back to direct`);
-      // Fall through to direct fetch below
+async function proxyRequest(targetUrl: string, req: Request): Promise<Response> {
+  const headers = new Headers();
+
+  // Forward relevant headers, add required API-Version
+  for (const [k, v] of req.headers.entries()) {
+    const lower = k.toLowerCase();
+    if (["content-type", "authorization", "accept"].includes(lower)) {
+      headers.set(k, v);
     }
   }
-  return fetch(url, options);
+  headers.set("API-Version", API_VERSION);
+
+  const body = req.method !== "GET" && req.method !== "HEAD"
+    ? await req.arrayBuffer()
+    : undefined;
+
+  const upstream = await fetch(targetUrl, {
+    method: req.method,
+    headers,
+    body,
+    signal: AbortSignal.timeout(20000),
+  });
+
+  const respHeaders = new Headers();
+  for (const [k, v] of upstream.headers.entries()) {
+    if (!["content-encoding", "transfer-encoding", "connection"].includes(k.toLowerCase())) {
+      respHeaders.set(k, v);
+    }
+  }
+  respHeaders.set("x-relay-via", "ion-payquicker-relay");
+
+  return new Response(upstream.body, {
+    status: upstream.status,
+    headers: respHeaders,
+  });
 }
 
-Deno.serve({ port: PORT }, async (req) => {
+Deno.serve({ port: PORT }, async (req: Request) => {
   const url = new URL(req.url);
-  const inboundIP = req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip") || "unknown";
 
-  console.log(JSON.stringify({
-    event: "inbound",
-    method: req.method,
-    path: url.pathname,
-    ip: inboundIP,
-    ts: new Date().toISOString(),
-    hasSecret: req.headers.has("x-relay-secret"),
-  }));
-
-  // Health check — no auth needed
+  // Health check (no auth required)
   if (url.pathname === "/health") {
-    return Response.json({ ok: true, ts: new Date().toISOString(), proxy: !!QG_URL });
+    return Response.json({ ok: true, ts: new Date().toISOString(), pq_base: PQ_SANDBOX_BASE });
   }
 
-  // IP check — shows the outbound IP PayQuicker sees
+  // IP check (no auth required)
   if (url.pathname === "/whoami") {
     try {
-      const r = await proxyFetch("https://api.ipify.org?format=json");
-      const data = await r.json();
-      return Response.json({ ip: data.ip, proxy_active: !!QG_URL, qg_configured: !!QG_URL });
+      const r = await fetch("https://api.ipify.org/?format=json", { signal: AbortSignal.timeout(5000) });
+      const d = await r.json();
+      return Response.json({ ip: d.ip });
     } catch (e) {
-      return Response.json({ error: e.message }, { status: 500 });
+      return Response.json({ error: String(e) }, { status: 502 });
     }
   }
 
-  // ALL other routes require x-relay-secret
-  if (req.headers.get("x-relay-secret") !== RELAY_SECRET) {
-    console.log(JSON.stringify({ event: "forbidden", ip: inboundIP, path: url.pathname, ts: new Date().toISOString() }));
-    return Response.json({ error: "Forbidden" }, { status: 403 });
+  // All other routes require relay secret
+  const secret = req.headers.get("x-relay-secret");
+  if (!secret || secret !== RELAY_SECRET) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let targetUrl: string;
-
-  if (url.pathname.startsWith("/auth/")) {
-    const targetPath = url.pathname.slice(5); // strip /auth
-    targetUrl = `${PQ_AUTH_BASE}${targetPath}${url.search}`;
-  } else if (url.pathname.startsWith("/pq/")) {
-    const targetPath = url.pathname.slice(3); // strip /pq
-    targetUrl = `${PQ_BASE}${targetPath}${url.search}`;
-  } else {
-    return Response.json({ error: "Not found" }, { status: 404 });
+  // Auth route: POST /auth/connect/token → PQ_SANDBOX_BASE/auth/connect/token
+  if (url.pathname === "/auth/connect/token") {
+    const target = `${PQ_SANDBOX_BASE}/auth/connect/token`;
+    console.log(`[AUTH] → ${target}`);
+    try {
+      return await proxyRequest(target, req);
+    } catch (e) {
+      return Response.json({ error: "Relay upstream error", detail: String(e) }, { status: 502 });
+    }
   }
 
-  const fwdHeaders = new Headers();
-  for (const [k, v] of req.headers.entries()) {
-    const lk = k.toLowerCase();
-    if (["host", "x-relay-secret", "content-length", "connection"].includes(lk)) continue;
-    fwdHeaders.set(k, v);
+  // API route: /pq/* → PQ_SANDBOX_BASE/*
+  if (url.pathname.startsWith("/pq/")) {
+    const pqPath = url.pathname.replace("/pq", "") + url.search;
+    const target = `${PQ_SANDBOX_BASE}${pqPath}`;
+    console.log(`[API] ${req.method} → ${target}`);
+    try {
+      return await proxyRequest(target, req);
+    } catch (e) {
+      return Response.json({ error: "Relay upstream error", detail: String(e) }, { status: 502 });
+    }
   }
 
-  const body = ["GET", "HEAD"].includes(req.method) ? undefined : await req.arrayBuffer();
-
-  const started = Date.now();
-  try {
-    const pqRes = await proxyFetch(targetUrl, { method: req.method, headers: fwdHeaders, body });
-    const respBody = await pqRes.arrayBuffer();
-
-    console.log(JSON.stringify({
-      event: "proxied",
-      method: req.method,
-      path: url.pathname,
-      target: targetUrl,
-      status: pqRes.status,
-      ms: Date.now() - started,
-      proxy: !!QG_URL,
-      inboundIP,
-    }));
-
-    const outHeaders = new Headers();
-    pqRes.headers.forEach((v, k) => {
-      if (!["connection", "transfer-encoding", "content-encoding"].includes(k.toLowerCase())) {
-        outHeaders.set(k, v);
-      }
-    });
-    return new Response(respBody, { status: pqRes.status, headers: outHeaders });
-  } catch (e) {
-    console.error(JSON.stringify({ event: "error", error: e.message, path: url.pathname, ms: Date.now() - started }));
-    return Response.json({ error: "Relay upstream error", detail: e.message }, { status: 502 });
-  }
+  return Response.json({ error: "Not found" }, { status: 404 });
 });
