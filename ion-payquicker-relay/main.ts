@@ -9,13 +9,21 @@ if (!RELAY_SECRET) {
   Deno.exit(1);
 }
 
+console.log(`ION→PayQuicker relay starting | port:${PORT} | API:${PQ_BASE} | Auth:${PQ_AUTH_BASE} | QG:${QG_URL ? "CONFIGURED" : "DISABLED"}`);
+
 // Build fetch options — route ALL outbound traffic through QuotaGuard static IP
+// Falls back to direct fetch if proxy fails (DNS error etc.)
 async function proxyFetch(url: string, options: RequestInit = {}): Promise<Response> {
   if (QG_URL) {
-    const client = Deno.createHttpClient({ proxy: { url: QG_URL } });
-    return fetch(url, { ...options, client } as any);
+    try {
+      const client = Deno.createHttpClient({ proxy: { url: QG_URL } });
+      const res = await fetch(url, { ...options, client } as any);
+      return res;
+    } catch (proxyErr) {
+      console.warn(`Proxy fetch failed (${proxyErr.message}), falling back to direct`);
+      // Fall through to direct fetch below
+    }
   }
-  console.warn("WARNING: QuotaGuard not configured — outbound IP will NOT be static!");
   return fetch(url, options);
 }
 
@@ -23,7 +31,6 @@ Deno.serve({ port: PORT }, async (req) => {
   const url = new URL(req.url);
   const inboundIP = req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip") || "unknown";
 
-  // Log every inbound request for debugging
   console.log(JSON.stringify({
     event: "inbound",
     method: req.method,
@@ -49,15 +56,12 @@ Deno.serve({ port: PORT }, async (req) => {
     }
   }
 
-  // ALL other routes require x-relay-secret — NO inbound IP whitelist
-  // Security is handled by the secret header only
+  // ALL other routes require x-relay-secret
   if (req.headers.get("x-relay-secret") !== RELAY_SECRET) {
     console.log(JSON.stringify({ event: "forbidden", ip: inboundIP, path: url.pathname, ts: new Date().toISOString() }));
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // /auth/* routes go to auth.mypayquicker.com
-  // /pq/*  routes go to platform.mypayquicker.com
   let targetUrl: string;
 
   if (url.pathname.startsWith("/auth/")) {
@@ -107,6 +111,3 @@ Deno.serve({ port: PORT }, async (req) => {
     return Response.json({ error: "Relay upstream error", detail: e.message }, { status: 502 });
   }
 });
-
-console.log(`ION→PayQuicker relay | port:${PORT} | API:${PQ_BASE} | Auth:${PQ_AUTH_BASE} | QG:${QG_URL ? "ACTIVE" : "DISABLED"}`);
-
