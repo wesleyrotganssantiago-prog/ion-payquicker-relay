@@ -9,38 +9,55 @@ if (!RELAY_SECRET) {
   Deno.exit(1);
 }
 
-// Build fetch options — route through QuotaGuard SOCKS5/HTTP proxy if available
+// Build fetch options — route ALL outbound traffic through QuotaGuard static IP
 async function proxyFetch(url: string, options: RequestInit = {}): Promise<Response> {
   if (QG_URL) {
     const client = Deno.createHttpClient({ proxy: { url: QG_URL } });
     return fetch(url, { ...options, client } as any);
   }
+  console.warn("WARNING: QuotaGuard not configured — outbound IP will NOT be static!");
   return fetch(url, options);
 }
 
 Deno.serve({ port: PORT }, async (req) => {
   const url = new URL(req.url);
+  const inboundIP = req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip") || "unknown";
 
+  // Log every inbound request for debugging
+  console.log(JSON.stringify({
+    event: "inbound",
+    method: req.method,
+    path: url.pathname,
+    ip: inboundIP,
+    ts: new Date().toISOString(),
+    hasSecret: req.headers.has("x-relay-secret"),
+  }));
+
+  // Health check — no auth needed
   if (url.pathname === "/health") {
     return Response.json({ ok: true, ts: new Date().toISOString(), proxy: !!QG_URL });
   }
 
+  // IP check — shows the outbound IP PayQuicker sees
   if (url.pathname === "/whoami") {
     try {
       const r = await proxyFetch("https://api.ipify.org?format=json");
       const data = await r.json();
-      return Response.json({ ip: data.ip, proxy_active: !!QG_URL });
+      return Response.json({ ip: data.ip, proxy_active: !!QG_URL, qg_configured: !!QG_URL });
     } catch (e) {
       return Response.json({ error: e.message }, { status: 500 });
     }
   }
 
+  // ALL other routes require x-relay-secret — NO inbound IP whitelist
+  // Security is handled by the secret header only
   if (req.headers.get("x-relay-secret") !== RELAY_SECRET) {
+    console.log(JSON.stringify({ event: "forbidden", ip: inboundIP, path: url.pathname, ts: new Date().toISOString() }));
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
   // /auth/* routes go to auth.mypayquicker.com
-  // /pq/* routes go to platform.mypayquicker.com
+  // /pq/*  routes go to platform.mypayquicker.com
   let targetUrl: string;
 
   if (url.pathname.startsWith("/auth/")) {
@@ -66,7 +83,18 @@ Deno.serve({ port: PORT }, async (req) => {
   try {
     const pqRes = await proxyFetch(targetUrl, { method: req.method, headers: fwdHeaders, body });
     const respBody = await pqRes.arrayBuffer();
-    console.log(JSON.stringify({ method: req.method, path: url.pathname, target: targetUrl, status: pqRes.status, ms: Date.now() - started, proxy: !!QG_URL }));
+
+    console.log(JSON.stringify({
+      event: "proxied",
+      method: req.method,
+      path: url.pathname,
+      target: targetUrl,
+      status: pqRes.status,
+      ms: Date.now() - started,
+      proxy: !!QG_URL,
+      inboundIP,
+    }));
+
     const outHeaders = new Headers();
     pqRes.headers.forEach((v, k) => {
       if (!["connection", "transfer-encoding", "content-encoding"].includes(k.toLowerCase())) {
@@ -75,7 +103,7 @@ Deno.serve({ port: PORT }, async (req) => {
     });
     return new Response(respBody, { status: pqRes.status, headers: outHeaders });
   } catch (e) {
-    console.error(JSON.stringify({ error: e.message, path: url.pathname, ms: Date.now() - started }));
+    console.error(JSON.stringify({ event: "error", error: e.message, path: url.pathname, ms: Date.now() - started }));
     return Response.json({ error: "Relay upstream error", detail: e.message }, { status: 502 });
   }
 });
