@@ -109,3 +109,4 @@ Deno.serve({ port: PORT }, async (req) => {
 });
 
 console.log(`ION→PayQuicker relay | port:${PORT} | API:${PQ_BASE} | Auth:${PQ_AUTH_BASE} | QG:${QG_URL ? "ACTIVE" : "DISABLED"}`);
+
